@@ -14,7 +14,7 @@ def parse():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-i', '--input-dir',
-                        help='enter the directory with the data. '
+                        help='[OPTIONAL] enter the directory with the data. '
                              'if the parameter is skipped, press ENTER and enter the text')
 
     parser.add_argument('-m', '--model', required=True,
@@ -97,13 +97,13 @@ class Ngramm(Reader):
         if self.tokens[i] in ngramm:
             possible_words = ngramm[self.tokens[i]]
             if self.tokens[i + 1] in possible_words:
-                possible_words[0][possible_words.index(self.tokens[i + 1])] += 1
+                possible_words[0][possible_words.index(self.tokens[i + 1]) - 1] += 1
             else:
                 possible_words.append(self.tokens[i + 1])
                 possible_words[0].append(1)
             ngramm[self.tokens[i]] = possible_words
         else:
-            ngramm[self.tokens[i]] = [[0, 1], self.tokens[i + 1]]
+            ngramm[self.tokens[i]] = [[1], self.tokens[i + 1]]
 
     def bigramm(self, ngramm, i):
         """
@@ -112,13 +112,13 @@ class Ngramm(Reader):
         if (self.tokens[i], self.tokens[i + 1]) in ngramm:
             possible_words = ngramm[(self.tokens[i], self.tokens[i + 1])]
             if self.tokens[i + 2] in possible_words:
-                possible_words[0][possible_words.index(self.tokens[i + 2])] += 1
+                possible_words[0][possible_words.index(self.tokens[i + 2]) - 1] += 1
             else:
                 possible_words.append(self.tokens[i + 2])
                 possible_words[0].append(1)
             ngramm[(self.tokens[i], self.tokens[i + 1])] = possible_words
         else:
-            ngramm[(self.tokens[i], self.tokens[i + 1])] = [[0, 1], self.tokens[i + 2]]
+            ngramm[(self.tokens[i], self.tokens[i + 1])] = [[1], self.tokens[i + 2]]
 
     def create(self):
         """
