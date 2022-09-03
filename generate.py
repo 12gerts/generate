@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 import sys
 import argparse
-from train import tokenize
+from train import tokenize, is_exist
 import random
 
 
@@ -18,11 +18,15 @@ def parse():
     """
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-m', '--model', required=True,
+    parser.add_argument('-m', '--model',
+                        required=True,
                         help='path to the file from which the model is loaded')
-    parser.add_argument('-l', '--length', required=True, type=int,
+    parser.add_argument('-l', '--length',
+                        required=True,
+                        type=int,
                         help=' the length of the generated sequence')
-    parser.add_argument('-p', '--prefix', nargs='+',
+    parser.add_argument('-p', '--prefix',
+                        nargs='+',
                         help='[OPTIONAL] the beginning of the sentence (one or more words)')
 
     return parser.parse_args()
@@ -50,7 +54,8 @@ class Generating:
 
     def get_value(self, current_prefix):
         return np.random.choice(
-            self.ngramm[current_prefix][1:], p=self.ngramm[current_prefix][0]
+            self.ngramm[current_prefix][1:],
+            p=self.ngramm[current_prefix][0]
         )
 
     def validate(self):
@@ -80,7 +85,6 @@ class Generating:
                 while self.length > len(predictions_array):
                     prediction = self.get_value(current_prefix)
                     predictions_array.append(prediction)
-
                     current_prefix = get_prefix(predictions_array)
             except KeyError:
                 continue
@@ -98,12 +102,14 @@ def main():
     else:
         prefix = None
 
-    print(Generating(
-        ngramm=loading(parse_line.model),
-        prefix=prefix,
-        length=int(parse_line.length))
-          .generated_string
-          )
+    is_exist(parse_line.model)
+    print(
+        Generating(
+            ngramm=loading(parse_line.model),
+            prefix=prefix,
+            length=int(parse_line.length)
+        ).generated_string
+    )
 
 
 if __name__ == '__main__':

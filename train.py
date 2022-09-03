@@ -8,7 +8,8 @@ import pickle
 
 def parse():
     """
-    parsing command line arguments
+    Parsing command line arguments.
+
     :return: Namespace
     """
     parser = argparse.ArgumentParser()
@@ -17,7 +18,8 @@ def parse():
                         help='[OPTIONAL] enter the directory with the data. '
                              'if the parameter is skipped, press ENTER and enter the text')
 
-    parser.add_argument('-m', '--model', required=True,
+    parser.add_argument('-m', '--model',
+                        required=True,
                         help='path to the file in which the model is saved')
 
     if parser.parse_args().input_dir is None:
@@ -27,9 +29,11 @@ def parse():
         if agree[:-1].lower() == 'y':
             print('press ctrl+z on the new line to finish typing\ninput russian text:')
             text = sys.stdin.read()
+
         elif agree[:-1].lower() == 'n':
             print('input russian text:')
             text = sys.stdin.readline()
+
         else:
             print('wrong entry, try again')
             sys.exit()
@@ -45,7 +49,10 @@ def parse():
 
 def tokenize(tokens):
     """
-    splitting text into tokens
+    Splitting text into tokens
+
+    :param tokens: str
+    :return: list
     """
     tokens = tokens.lower()
     tokens = re.sub(r'[^a-яё-]', ' ', str(tokens))
@@ -53,23 +60,39 @@ def tokenize(tokens):
     return tokens.split()
 
 
+def is_exist(path):
+    if not os.path.exists(path):
+        print('[ERROR] a directory or file that does not exist')
+        sys.exit()
+
+
 class Reader:
+    """
+
+    """
+
     def __init__(self, path_files=None, text=None):
         self.path = path_files
+
         if text is None:
             self.tokens = self.reading()
         else:
             self.tokens = tokenize(text)
 
     def reading(self):
-        """
-        read all files in a directory
+        """ Read files
+
+        Read all files in a directory.
+
         :return: the entire text
         """
         array_texts = []
+        is_exist(self.path)
+
         for file in os.listdir(self.path):
             with open(f'{self.path}\\{file}', encoding="utf8") as f:
                 array_texts.append(f.read())
+
         sample_text = ' '.join(array_texts)
         return tokenize(sample_text)
 
@@ -77,11 +100,13 @@ class Reader:
 def normalize(dictionary):
     """
     frequency normalization
-    :param dictionary: original dictionary
-    :return: modified dictionary
+    :param dictionary: dictionary
+    :return: dictionary
     """
     for key in dictionary:
-        dictionary[key][0] = np.array(dictionary[key][0]) / np.array(dictionary[key][0]).sum()
+        occurrence_rate = np.array(dictionary[key][0])
+        total_amount = np.array(dictionary[key][0]).sum()
+        dictionary[key][0] = occurrence_rate / total_amount
     return dictionary
 
 
@@ -90,14 +115,13 @@ class Ngramm(Reader):
         super().__init__(text=text, path_files=path_files)
         self.ngramm = self.create()
 
-    def unigramm(self, ngramm, i):
-        """
-        add unigramm in a prefix dictionary
-        """
+    def unigramm(self, ngramm: dict, i: int):
+        """ Add unigramm in a prefix dictionary. """
         if self.tokens[i] in ngramm:
             possible_words = ngramm[self.tokens[i]]
             if self.tokens[i + 1] in possible_words:
-                possible_words[0][possible_words.index(self.tokens[i + 1]) - 1] += 1
+                word_index = possible_words.index(self.tokens[i + 1]) - 1
+                possible_words[0][word_index] += 1
             else:
                 possible_words.append(self.tokens[i + 1])
                 possible_words[0].append(1)
@@ -105,25 +129,26 @@ class Ngramm(Reader):
         else:
             ngramm[self.tokens[i]] = [[1], self.tokens[i + 1]]
 
-    def bigramm(self, ngramm, i):
-        """
-        add bigramm in a prefix dictionary
-        """
+    def bigramm(self, ngramm: dict, i: int):
+        """ Add bigramm in a prefix dictionary. """
         if (self.tokens[i], self.tokens[i + 1]) in ngramm:
+
             possible_words = ngramm[(self.tokens[i], self.tokens[i + 1])]
+
             if self.tokens[i + 2] in possible_words:
-                possible_words[0][possible_words.index(self.tokens[i + 2]) - 1] += 1
+                word_index = possible_words.index(self.tokens[i + 2]) - 1
+                possible_words[0][word_index] += 1
             else:
                 possible_words.append(self.tokens[i + 2])
                 possible_words[0].append(1)
+
             ngramm[(self.tokens[i], self.tokens[i + 1])] = possible_words
+
         else:
             ngramm[(self.tokens[i], self.tokens[i + 1])] = [[1], self.tokens[i + 2]]
 
     def create(self):
-        """
-        going through the text and compiling a prefix dictionary
-        """
+        """ Going through the text and compiling a prefix dictionary. """
         ngramm = {}
         for i in range(len(self.tokens) - 1):
             try:
@@ -145,7 +170,9 @@ def main():
         prefix_dictionary = Ngramm(path_files=parse_line.input_dir)
     else:
         prefix_dictionary = Ngramm(text=parse_line.text)
-    unloading(name=parse_line.model, data=prefix_dictionary.ngramm)
+
+    unloading(name=parse_line.model,
+              data=prefix_dictionary.ngramm)
 
 
 if __name__ == '__main__':
