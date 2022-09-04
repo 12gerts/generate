@@ -7,11 +7,7 @@ import pickle
 
 
 def parse():
-    """
-    Parsing command line arguments.
-
-    :return: Namespace
-    """
+    """ Parsing command line arguments. """
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-i', '--input-dir',
@@ -35,11 +31,11 @@ def parse():
             text = sys.stdin.readline()
 
         else:
-            print('wrong entry, try again')
+            print('[ERROR] wrong entry, try again')
             sys.exit()
 
         if len(re.sub(r'\s', '', str(text))) < 1:
-            print('the line is empty. retry')
+            print('[ERROR] the line is empty. retry')
             sys.exit()
 
         parser.add_argument('--text', default=text)
@@ -48,12 +44,7 @@ def parse():
 
 
 def tokenize(tokens):
-    """
-    Splitting text into tokens
-
-    :param tokens: str
-    :return: list
-    """
+    """ Splitting text into tokens. """
     tokens = tokens.lower()
     tokens = re.sub(r'[^a-яё-]', ' ', str(tokens))
     tokens = re.sub(r'\s-\s', ' ', str(tokens))
@@ -61,31 +52,26 @@ def tokenize(tokens):
 
 
 def is_exist(path):
+    """ Checking the existence of a file or directory. """
     if not os.path.exists(path):
         print('[ERROR] a directory or file that does not exist')
         sys.exit()
 
 
-class Reader:
+class TokenReader:
     """
-
+    Reading files and processing the resulting text.
+    Composing tokens.
     """
-
     def __init__(self, path_files=None, text=None):
         self.path = path_files
-
-        if text is None:
-            self.tokens = self.reading()
-        else:
-            self.tokens = tokenize(text)
+        self.text = text
 
     def reading(self):
-        """ Read files
+        """ Read all files in a directory. """
+        if self.text is not None:
+            return tokenize(self.text)
 
-        Read all files in a directory.
-
-        :return: the entire text
-        """
         array_texts = []
         is_exist(self.path)
 
@@ -98,68 +84,62 @@ class Reader:
 
 
 def normalize(dictionary):
-    """
-    frequency normalization
-    :param dictionary: dictionary
-    :return: dictionary
-    """
+    """ Frequency normalization. """
     for key in dictionary:
         occurrence_rate = np.array(dictionary[key][0])
         total_amount = np.array(dictionary[key][0]).sum()
         dictionary[key][0] = occurrence_rate / total_amount
+
     return dictionary
 
 
-class Ngramm(Reader):
-    def __init__(self, path_files=None, text=None):
-        super().__init__(text=text, path_files=path_files)
-        self.ngramm = self.create()
+def ngramms(ngramm, key, value):
+    """ Compiling N-gramm """
+    if key in ngramm:
+        possible_words = ngramm[key]
 
-    def unigramm(self, ngramm: dict, i: int):
+        if value in possible_words:
+            word_index = possible_words.index(value) - 1
+            possible_words[0][word_index] += 1
+        else:
+            possible_words.append(value)
+            possible_words[0].append(1)
+
+        ngramm[key] = possible_words
+    else:
+        ngramm[key] = [[1], value]
+
+
+class Ngramm:
+    """ Compiles a prefix dictionary from the list. """
+    def __init__(self, tokens: list):
+        self.tokens = tokens
+
+    def __unigramm(self, ngramm: dict, i: int):
         """ Add unigramm in a prefix dictionary. """
-        if self.tokens[i] in ngramm:
-            possible_words = ngramm[self.tokens[i]]
-            if self.tokens[i + 1] in possible_words:
-                word_index = possible_words.index(self.tokens[i + 1]) - 1
-                possible_words[0][word_index] += 1
-            else:
-                possible_words.append(self.tokens[i + 1])
-                possible_words[0].append(1)
-            ngramm[self.tokens[i]] = possible_words
-        else:
-            ngramm[self.tokens[i]] = [[1], self.tokens[i + 1]]
+        key = self.tokens[i]
+        value = self.tokens[i + 1]
+        return ngramms(ngramm, key, value)
 
-    def bigramm(self, ngramm: dict, i: int):
+    def __bigramm(self, ngramm: dict, i: int):
         """ Add bigramm in a prefix dictionary. """
-        if (self.tokens[i], self.tokens[i + 1]) in ngramm:
+        key = (self.tokens[i], self.tokens[i + 1])
+        value = self.tokens[i + 2]
+        return ngramms(ngramm, key, value)
 
-            possible_words = ngramm[(self.tokens[i], self.tokens[i + 1])]
-
-            if self.tokens[i + 2] in possible_words:
-                word_index = possible_words.index(self.tokens[i + 2]) - 1
-                possible_words[0][word_index] += 1
-            else:
-                possible_words.append(self.tokens[i + 2])
-                possible_words[0].append(1)
-
-            ngramm[(self.tokens[i], self.tokens[i + 1])] = possible_words
-
-        else:
-            ngramm[(self.tokens[i], self.tokens[i + 1])] = [[1], self.tokens[i + 2]]
-
-    def create(self):
-        """ Going through the text and compiling a prefix dictionary. """
+    def fit(self):
+        """ Going through the list and compiling a prefix dictionary. """
         ngramm = {}
-        for i in range(len(self.tokens) - 1):
-            try:
-                self.unigramm(ngramm, i)
-                self.bigramm(ngramm, i)
-            except IndexError:
-                break
+        for i in range(len(self.tokens) - 2):
+            self.__unigramm(ngramm, i)
+            self.__bigramm(ngramm, i)
+        self.__unigramm(ngramm, len(self.tokens) - 2)
+
         return normalize(ngramm)
 
 
 def unloading(name: str, data: dict):
+    """ Save dictionary to a file. """
     with open(name, 'wb') as f:
         pickle.dump(data, f)
 
@@ -167,12 +147,14 @@ def unloading(name: str, data: dict):
 def main():
     parse_line = parse()
     if parse_line.input_dir is not None:
-        prefix_dictionary = Ngramm(path_files=parse_line.input_dir)
+        token_reader = TokenReader(path_files=parse_line.input_dir)
     else:
-        prefix_dictionary = Ngramm(text=parse_line.text)
+        token_reader = TokenReader(text=parse_line.text)
+
+    prefix_dictionary = Ngramm(token_reader.reading())
 
     unloading(name=parse_line.model,
-              data=prefix_dictionary.ngramm)
+              data=prefix_dictionary.fit())
 
 
 if __name__ == '__main__':
