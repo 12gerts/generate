@@ -7,15 +7,13 @@ import random
 
 
 def loading(file_name):
+    """ Loads data from the model. """
     with open(file_name, 'rb') as f:
         return pickle.load(f)
 
 
 def parse():
-    """
-    parsing command line arguments
-    :return: Namespace
-    """
+    """ Parsing command line arguments. """
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-m', '--model',
@@ -33,6 +31,7 @@ def parse():
 
 
 def get_prefix(prefix):
+    """ Returns the desired prefix format. """
     if prefix is None:
         return None
     if len(prefix) == 1:
@@ -40,39 +39,28 @@ def get_prefix(prefix):
     return tuple(prefix[-2:])
 
 
+def error_handling(error):
+    """ Error output. """
+    if error == 'prefix_not_found':
+        print('[ERROR] incorrect input or insufficient data. Prefix not found')
+    elif error == 'generate_error':
+        print('[ERROR] insufficient data. The sequence cannot be generated with the given prefix\\length')
+    sys.exit()
+
+
 class Generating:
     def __init__(self, ngramm=None, prefix=None, length=None):
         self.ngramm = ngramm
         self.full_prefix = prefix
         self.prefix = get_prefix(prefix)
-        self.validate()
+        self.__validate()
         self.length = length
-        self.generated_string = self.generate()
-
-    def random_key(self):
-        return random.choice(list(self.ngramm))
-
-    def get_value(self, current_prefix):
-        return np.random.choice(
-            self.ngramm[current_prefix][1:],
-            p=self.ngramm[current_prefix][0]
-        )
-
-    def validate(self):
-        try:
-            self.ngramm[self.return_prefix()]
-        except KeyError:
-            print('incorrect input or insufficient data')
-            sys.exit()
-
-    def return_prefix(self):
-        if self.prefix is None:
-            return self.random_key()
-        return self.prefix
 
     def generate(self):
+        """ Sequence generation. """
         for _ in range(50):
-            current_prefix = self.return_prefix()
+            current_prefix = self.__return_prefix()
+
             if isinstance(current_prefix, tuple):
                 if self.full_prefix is None:
                     predictions_array = list(current_prefix)
@@ -83,7 +71,7 @@ class Generating:
 
             try:
                 while self.length > len(predictions_array):
-                    prediction = self.get_value(current_prefix)
+                    prediction = self.__get_value(current_prefix)
                     predictions_array.append(prediction)
                     current_prefix = get_prefix(predictions_array)
             except KeyError:
@@ -91,8 +79,29 @@ class Generating:
 
             return ' '.join(predictions_array)
 
-        print('insufficient data')
-        sys.exit()
+        error_handling('generate_error')
+
+    def __random_key(self):
+        """ Return a random key. """
+        return random.choice(list(self.ngramm))
+
+    def __get_value(self, current_prefix):
+        """ Choosing a possible continuation of a sentence. """
+        return np.random.choice(
+            self.ngramm[current_prefix][1:],
+            p=self.ngramm[current_prefix][0]
+        )
+
+    def __validate(self):
+        """ Checking for the existence of a prefix. """
+        if self.__return_prefix() not in self.ngramm:
+            error_handling('prefix_not_found')
+
+    def __return_prefix(self):
+        """ Return prefix or random prefix. """
+        if self.prefix is None:
+            return self.__random_key()
+        return self.prefix
 
 
 def main():
@@ -108,7 +117,7 @@ def main():
             ngramm=loading(parse_line.model),
             prefix=prefix,
             length=int(parse_line.length)
-        ).generated_string
+        ).generate()
     )
 
 
